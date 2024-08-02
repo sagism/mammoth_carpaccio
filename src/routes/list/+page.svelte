@@ -7,17 +7,24 @@
 	const prices = writable([null]);
 	const quantities = writable([null]);
 	let log = [];
+	let comments = '';
 
 	let discounts_table = {
-		1000: 10,
-		2000: 15,
-		3000: 20
+		1000: 3,
+		5000: 5,
+		7000: 7,
+		10000: 10,
+		50000: 15
 	};
 
 	let state = 'CA'; // default
 	let states = {
-		CA: 8.15,
-		TX: 6.25
+		NV: 8.32,
+		CA: 8.66,
+		OR: 0,
+		AZ: 8.4,
+		UT: 7.18,
+		ID: 6.03
 	};
 	$: tax_rate = () => {
 		return states[state];
@@ -58,8 +65,8 @@
 		await new Promise((resolve) => requestAnimationFrame(resolve));
 
 		// Focus the first input in the newly added row
-		const newInputs = document.querySelectorAll('input');
-		newInputs[newInputs.length - 2].focus();
+		const newInputs = document.querySelectorAll('input.price');
+		newInputs[newInputs.length - 1].focus();
 	}
 
 	// Remove a row
@@ -74,7 +81,7 @@
 
 	async function handleKeydown(event) {
 		if (event.key === 'Tab' && event.shiftKey === false) {
-			const inputs = document.querySelectorAll('input');
+			const inputs = document.querySelectorAll('input.quantity');
 			const lastInput = inputs[inputs.length - 1];
 			if (lastInput === document.activeElement) {
 				addRow();
@@ -107,10 +114,18 @@
 	});
 
 	function populateFromLog(index) {
+		clear();
+		console.log('populateFromLog', index);
 		const item = log[index];
 		console.table(item);
-		price = item.price;
-		quantity = item.quantity;
+		prices.set([]);
+		quantities.set([]);
+		for (let i = 0; i < item.lines.length; i++) {
+			prices.update((n) => [...n, item.lines[i].price]);
+			quantities.update((n) => [...n, item.lines[i].quantity]);
+		}
+
+		state = item.state;
 	}
 
 	function items() {
@@ -141,6 +156,7 @@
 			timestamp: new Date(),
 			state: state,
 			discount_rate: discount_rate(),
+			comments: comments,
 			tax_rate: tax_rate()
 		};
 		log = [newItem, ...log];
@@ -165,7 +181,7 @@
 	<h1 class="w-full text-center text-3xl font-bold">Quotes helper</h1>
 	<div class="text-center text-md">
 		<div class="text-xl">
-			Grand Total: <span class="font-bold text-sky-700">{formatPrice(grandTotal)}</span>
+			Grand Total: <span class="font-bold text-sky-700 font-mono">{formatPrice(grandTotal)}</span>
 		</div>
 		({formatPrice(preTaxTotal)} - {formatPrice((discount_rate() / 100) * preTaxTotal)}
 		discount +
@@ -191,7 +207,7 @@
 					<th>Price</th>
 					<th>Quantity</th>
 					<th>Total</th>
-					<th>Action</th>
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -199,7 +215,7 @@
 					<tr>
 						<td class="text-right p-0"
 							><input
-								class="text-right py-1"
+								class="text-right py-1 price font-mono"
 								name="price"
 								type="number"
 								bind:value={$prices[index]}
@@ -208,13 +224,13 @@
 						>
 						<td class="text-right p-0"
 							><input
-								class="text-right py-1"
+								class="text-right py-1 quantity font-mono"
 								type="number"
 								bind:value={$quantities[index]}
 								min="0"
 							/></td
 						>
-						<td class="text-right p-0">{formatPrice(totals[index])}</td>
+						<td class="text-right p-0 font-mono">{formatPrice(totals[index])}</td>
 						<td class="text-center"
 							><button class="btn btn-secondary btn-xs" on:click={() => removeRow(index)}
 								>Remove</button
@@ -224,45 +240,45 @@
 				{/each}
 			</tbody>
 		</table>
-		<button class="btn btn-primary m-4" on:click={addRow}>Add Row</button>
-		<button class="btn btn-primary m-4" on:click={saveQuote}>Save quote</button>
+		<div class="flex flex-row items-baseline justify-center">
+			<button class="btn btn-primary m-4" on:click={addRow}>Add Row</button>
+			<div class="border-2 m-2 rounded-md">
+				<input
+					type="text"
+					id="comments"
+					name="comments"
+					class="h-10 w-64 m-4 px-2"
+					bind:value={comments}
+					placeholder="comments to save"
+					on:keydown={(event) => {
+						if (event.key === 'Enter') {
+							event.preventDefault();
+							saveQuote();
+							clear();
+						}
+					}}
+				/>
+				<button class="btn btn-primary m-4" on:click={saveQuote}>Save quote</button>
+			</div>
+		</div>
 
-		<!-- <table class="log-list border-2 w-full mx-2" id="log-entries">
-			<thead>
-				<tr class="log-item border-b-2">
-					<th class="px-4">Date</th>
-					<th class="px-4">Amount</th>
-				</tr>
-			</thead>
-			<tbody>
-				{#each log as item, index (item.timestamp)}
-					<tr
-						class="log-item even:bg-stone-100 border-b-2 cursor-pointer log-entry"
-						item-index={index}
-						on:click={() => console.log(index)}
-					>
-						<td class="px-4 font-mono text-stone-600"
-							>{new Date(item.timestamp).toLocaleString()}</td
-						>
-						<td class="amount total">{formatPrice(item.value)}</td>
-						<td class="italic px-4 text-sky-800">{formatPrice(item.total)}</td>
-					</tr>
-				{/each}
-			</tbody>
-		</table> -->
-
+		<!-- Log area -->
 		<table class="table border-gray-300 border-2 table-zebra">
 			<thead>
 				<tr>
 					<th>Timestamp</th>
+					<th>Items</th>
 					<th>Total</th>
+					<th>Comments</th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each log as item}
-					<tr on:click={() => console.log(item)}>
+				{#each log as item, index (item.timestamp)}
+					<tr item-index={index} on:click={() => populateFromLog(index)} class="cursor-pointer">
 						<td class="border-1 border-black">{new Date(item.timestamp).toLocaleString()}</td>
-						<td>{formatPrice(item.total)}</td>
+						<td class="border-1 border-black">{item.lines.length}</td>
+						<td class="font-mono text-sky-600">{formatPrice(item.total)}</td>
+						<td class="italic">{item.comments}</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -271,3 +287,12 @@
 		<button class="btn btn-primary m-4" on:click={clearLog}>Clear log</button>
 	</div>
 </div>
+
+<style>
+	input {
+		@apply border-2 border-gray-400 rounded-md;
+	}
+	tr th {
+		@apply text-center;
+	}
+</style>
