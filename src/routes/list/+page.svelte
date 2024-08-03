@@ -58,6 +58,23 @@
 		totals = $prices.map((price, index) => price * $quantities[index]);
 	}
 
+	$: nextDiscountBracket = function () {
+		let nextDiscount = null;
+		let remaining = null;
+		let isClose = false;
+		for (let limit in discounts_table) {
+			if (preTaxTotal >= limit) {
+				remaining = null;
+			} else {
+				remaining = limit - preTaxTotal;
+				nextDiscount = discounts_table[limit];
+				isClose = remaining / preTaxTotal < 0.05; // flag if less than 5% away
+				break;
+			}
+		}
+		return { remaining, nextDiscount, isClose };
+	};
+
 	// Add a new row
 	async function addRow() {
 		prices.update((n) => [...n, null]);
@@ -240,6 +257,13 @@
 				{/each}
 			</tbody>
 		</table>
+		<!-- Next discount -->
+		<div class="w-full">
+			Purchase amount to get to next discount ({nextDiscountBracket().nextDiscount}%):
+			<span class="font-mono" class:highlight={nextDiscountBracket().isClose}
+				>{formatPrice(nextDiscountBracket().remaining)}</span
+			>
+		</div>
 		<div class="flex flex-row items-baseline justify-center">
 			<button class="btn btn-primary m-4" on:click={addRow}>Add Row</button>
 			<div class="border-2 m-2 rounded-md">
@@ -294,5 +318,12 @@
 	}
 	tr th {
 		@apply text-center;
+	}
+	.highlight {
+		@apply text-green-600 font-bold text-xl;
+	}
+	input[type='number']::-webkit-inner-spin-button,
+	input[type='number']::-webkit-outer-spin-button {
+		margin-left: 10px; /* Adjust the value as needed */
 	}
 </style>
